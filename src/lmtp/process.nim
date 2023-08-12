@@ -4,7 +4,7 @@ import ./protocol
 import ./address
 
 type
-  ClientCallback* = proc(mail_from, rcpt_to: seq[Address], body: string) {.gcsafe, async.}
+  ClientCallback* = proc(mail_from: seq[Address], rcpt_to: seq[Address], data: string): Future[string] {.closure, gcsafe, async.}
 
   CxState* = ref object
     capabilities*: seq[string]
@@ -52,14 +52,17 @@ proc processData(cx: CxState, cmd: Command, data: Option[string], cb: ClientCall
   if data.is_none:
     return Response(code: "354", text: "Start mail input; end with <CRLF>.<CRLF>", expect_body: true)
 
-  await cb(cx.mail_from, cx.rcpt_to, data.get)
-
-  return Response(code: "250", text: &"OK")
+  let res_code: string = await cb(cx.mail_from, cx.rcpt_to, data.get)
+  if res_code == "":
+    return Response(code: "250", text: &"OK")
+  else:
+    let parts = res_code.split(" ", 2)
+    return Response(code: parts[0], text: if parts.len > 1: parts[1] else: response_text(parts[0]))
 
 proc process*(cx: CxState, cmd: Command, data: Option[string], cb: ClientCallback): Future[Response] {.gcsafe, async.} =
   case cmd.command
   of CommandNone:
-    return Response(code: "500", text: "command not recognized")
+    return Response(code: "500", text: "Command not recognized")
   of CommandConnect:
     return Response(code: "220", text: &"{cx.fqdn} LMTP server ready")
   of CommandQUIT:

@@ -148,3 +148,22 @@ proc handle_protocol*(conn: Connection) {.async.} =
     when defined(ssl):
       if response.starttls:
         conn.starttls()
+
+proc response_text*(code: string): string =
+  case code
+  of "250": result = "OK"
+  of "251": result = "User not local; will forward"
+  of "421": result = "Service not available, closing transmission channel"
+  of "450": result = "Requested mail action not taken: mailbox unavailable"
+  of "451": result = "Requested action aborted: local error in processing"
+  of "452": result = "Requested action not taken: insufficient system storage"
+  of "500": result = "Command not recognized"
+  of "501": result = "Syntax error in parameters or arguments"
+  of "502": result = "Command not implemented"
+  of "503": result = "Bad sequence of commands"
+  of "550": result = "Requested action not taken: mailbox unavailable"
+  of "551": result = "User not local; please try elsewhere"
+  of "552": result = "Requested mail action aborted: exceeded storage allocation"
+  of "553": result = "Requested action not taken: mailbox name not allowed"
+  of "554": result = "Transaction failed"
+  else: result = ""
