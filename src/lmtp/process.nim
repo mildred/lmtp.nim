@@ -1,9 +1,10 @@
+import std/asyncdispatch
 import options, strutils, strformat
 import ./protocol
 import ./address
 
 type
-  ClientCallback* = proc(mail_from, rcpt_to: seq[Address], body: string) {.gcsafe.}
+  ClientCallback* = proc(mail_from, rcpt_to: seq[Address], body: string) {.gcsafe, async.}
 
   CxState* = ref object
     capabilities*: seq[string]
@@ -45,17 +46,17 @@ proc processRcptTo(cx: CxState, cmd: Command): Response =
 
   return Response(code: "250", text: "OK")
 
-proc processData(cx: CxState, cmd: Command, data: Option[string], cb: ClientCallback): Response {.gcsafe.} =
+proc processData(cx: CxState, cmd: Command, data: Option[string], cb: ClientCallback): Future[Response] {.gcsafe, async.} =
   if cx.mail_from.len == 0 or cx.rcpt_to.len == 0:
     return Response(code: "503", text: "Bad sequence of commands")
   if data.is_none:
     return Response(code: "354", text: "Start mail input; end with <CRLF>.<CRLF>", expect_body: true)
 
-  cb(cx.mail_from, cx.rcpt_to, data.get)
+  await cb(cx.mail_from, cx.rcpt_to, data.get)
 
   return Response(code: "250", text: &"OK")
 
-proc process*(cx: CxState, cmd: Command, data: Option[string], cb: ClientCallback): Response {.gcsafe.} =
+proc process*(cx: CxState, cmd: Command, data: Option[string], cb: ClientCallback): Future[Response] {.gcsafe, async.} =
   case cmd.command
   of CommandNone:
     return Response(code: "500", text: "command not recognized")
@@ -70,6 +71,6 @@ proc process*(cx: CxState, cmd: Command, data: Option[string], cb: ClientCallbac
   of CommandRCPT_TO:
     return cx.processRcptTo(cmd)
   of CommandDATA:
-    return cx.processData(cmd, data, cb)
+    return await cx.processData(cmd, data, cb)
 
 

@@ -17,7 +17,7 @@ export Connection
 
 proc process_lmtp_client*(client: AsyncSocket, cx: CxState, cb: ClientCallback, log: bool = false, crypto: SslContext = nil) {.async.} =
 
-  proc process(cmd: smtp.Command, data: Option[string]): smtp.Response {.gcsafe.} =
+  proc process(cmd: smtp.Command, data: Option[string]): Future[smtp.Response] {.gcsafe.} =
     return cx.process(cmd, data, cb)
 
   let conn = smtp.Connection(

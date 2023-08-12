@@ -40,7 +40,7 @@ type
     starttls*: proc()
     ## Start TLS handshake as server
 
-    process*:  proc(cmd: Command, body: Option[string]): Response
+    process*:  proc(cmd: Command, body: Option[string]): Future[Response] {.async.}
 
   ReplyError* = object of IOError
 
@@ -115,14 +115,14 @@ proc send*(res: Response, conn: Connection) {.async.} =
 
 proc handle_protocol*(conn: Connection) {.async.} =
   let initial_cmd = Command(command: CommandConnect)
-  let initial_response = conn.process(initial_cmd, none(string))
+  let initial_response = await conn.process(initial_cmd, none(string))
   await initial_response.send(conn)
   while true:
     let line = await conn.read()
     if line.is_none:
       break
     let command = parse_command(line.get)
-    var response = conn.process(command, none(string))
+    var response = await conn.process(command, none(string))
     await response.send(conn)
     while response.expect_body or response.expect_line:
       var data = ""
@@ -141,7 +141,7 @@ proc handle_protocol*(conn: Connection) {.async.} =
           data = data & dataline.get[1..^1] & CRLF
         else:
           data = data & dataline.get & CRLF
-      response = conn.process(command, some data)
+      response = await conn.process(command, some data)
       await response.send(conn)
     if response.quit:
       break
